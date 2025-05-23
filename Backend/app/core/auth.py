@@ -1,38 +1,52 @@
 # app/core/auth.py
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from pydantic import ValidationError
+from fastapi.security import OAuth2PasswordBearer, HTTPBearer
+from fastapi.security.http import HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from app.models.user_models import User
 from app.core.config import settings
 from app.core.database import get_db
+from app.api.schemas.auth import UserData
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+token_scheme  = HTTPBearer(auto_error=True)
 
-def get_user_by_email(db: Session, email: str) -> User | None:
+def get_user_by_email(db: Session, email: str):
     """Get user from database by email"""
     return db.query(User).filter(User.email == email).first()
 
 async def get_current_user(
-    token: str ,
+    credentials: HTTPAuthorizationCredentials = Depends(token_scheme),  # 👈 Note the type
     db: Session = Depends(get_db)
-) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+) -> UserData:
     try:
+        # Extract the token string from credentials
+        token = credentials.credentials  # 👈 This is the key fix
+        
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        email: str = payload.get("email")
-        if email is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+        email = payload.get("email")
+        if not email:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+            
+        user = get_user_by_email(db, email)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        print(f"user data: {user.email}, {user.id}, {user.username}")
+        try:
+            user_data = UserData(
+                id=user.id, 
+                email=user.email, 
+                username=user.username
+            )
+            print(f"UserData created successfully: {user_data}")
+            return user_data
+            
+        except ValidationError as ve:
+            print(f"Pydantic ValidationError: {ve}")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"User data validation failed: {ve}")
 
-    user = get_user_by_email(db, email)
-    if user is None:
-        raise credentials_exception
-    
-    return user
+        
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")

@@ -2,7 +2,7 @@ from pydantic import BaseModel, constr, validator
 from typing import Optional
 from uuid import UUID
 
-class ItineraryEntry(BaseModel):
+class ItineraryRequest(BaseModel):
     title: str
     description: Optional[str] = None
     day_number: Optional[int] = None

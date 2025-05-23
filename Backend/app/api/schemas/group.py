@@ -24,3 +24,18 @@ class Group(GroupBase):
 class AddMembersRequest(BaseModel):
     user_ids: List[UUID]
     role: MembershipRole = MembershipRole.MEMBER  # Default role
+
+class CreateGroupRequest(BaseModel):
+    name: str
+    description: str
+    def __init__(self, **data):
+        print(f"CreateGroupRequest received data: {data}")
+        super().__init__(**data)
+
+class GroupResponse(BaseModel):
+    id: UUID
+    name: str
+    description: Optional[str] = None
+    created_by: UUID
+    created_at: datetime
+    updated_at: Optional[datetime] = None

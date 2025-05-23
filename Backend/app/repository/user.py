@@ -111,5 +111,23 @@ class UserRepo:
         } for user_id, amount in net_balances.items() if amount != 0]
 
         return balance_data
+    def get_user_groups(
+            self,
+            user_id: UUID,
+            db: Session,
+    ):
+        try:
+            memberships = db.query(GroupMember).filter(GroupMember.user_id == user_id).all()
+            if not memberships:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="You don't have any Groups yet."
+                )
+            return memberships
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error while retriving user groups: {str(e)}"
+            )
 
 userrepo = UserRepo()

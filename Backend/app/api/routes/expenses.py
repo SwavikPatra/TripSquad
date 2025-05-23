@@ -18,7 +18,7 @@ from app.core.aws import upload_file_to_s3, delete_file_from_s3, generate_presig
 from app.api.schemas.expenses import ExpenseResponse, ExpenseUpdateRequest
 from typing import Optional, List, Text
 
-router = APIRouter(prefix="/groups", tags=["Expenses"])
+router = APIRouter(prefix="/expenses", tags=["Expenses"])
 
 @router.post("/{group_id}/expenses", status_code=status.HTTP_201_CREATED)
 def create_expense(

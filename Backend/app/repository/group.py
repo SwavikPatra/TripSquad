@@ -221,5 +221,14 @@ class GroupRepo:
         membership.role = new_role
         db.commit()
         return True
+
+    def get_group_by_id(self, db: Session, group_id: UUID) -> Group:
+        return db.query(Group).filter(Group.id == group_id).first()
+
+    def is_user_group_member(self, db: Session, group_id: UUID, user_id: UUID) -> bool:
+        return db.query(GroupMember).filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == user_id
+        ).first() is not None
 grouprepo = GroupRepo()
     

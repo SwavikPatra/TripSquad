@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
+from uuid import UUID
 
 class UserAuthData(BaseModel):
     username: str
@@ -9,10 +10,10 @@ class UserAuthData(BaseModel):
     class Config:
         from_attributes = True  # To allow conversion from SQLAlchemy models to Pydantic models
         
-class UserData:
-    username: str
+class UserData(BaseModel):
+    id: UUID
     email: str
-    id: str
+    username: str
 
 class LoginData(BaseModel):
     email: str

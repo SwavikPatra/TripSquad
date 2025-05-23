@@ -9,19 +9,18 @@ from app.helper.group_helper import grouphelper
 from uuid import UUID
 from app.repository.group import grouprepo
 from app.models.group_models import GroupMember, GroupAttachment, AttachmentType, MembershipRole
-from app.api.schemas.group import AddMembersRequest
+from app.api.schemas.group import AddMembersRequest, CreateGroupRequest, GroupResponse
 from app.models.itineraries_model import ItineraryEntry
 from app.models.user_models import User
 from app.core.aws import upload_file_to_s3, delete_file_from_s3, generate_presigned_url
 
 
 
-router = APIRouter()
+router = APIRouter(prefix="/group")
 
-@router.post("/groups", status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_group(
-    name: str = Form(...),
-    description: str = Form(None),
+    request: CreateGroupRequest,
     db: Session = Depends(get_db),
     current_user: UserData = Depends(get_current_user)
 ):
@@ -29,8 +28,8 @@ async def create_group(
         # Use repository pattern
         db_group = grouprepo.create_group(
             db=db,
-            name=name,
-            description=description,
+            name=request.name,
+            description=request.description,
             created_by=current_user.id
         )
         
@@ -65,8 +64,56 @@ async def create_group(
             }
         )
 
+@router.get("/{group_id}", status_code=status.HTTP_200_OK)
+async def get_group(
+    group_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserData = Depends(get_current_user)
+):
+    try:
+        # Check if user is a member of the group
+        
+        if not grouprepo.is_user_group_member(db, group_id, current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this group"
+            )
+        
+        # Get group details
+        db_group = grouprepo.get_group_by_id(db, group_id)
+        if not db_group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Group not found"
+            )
+        
+        # Convert to response model
+        group_response = GroupResponse(
+            id=db_group.id,
+            name=db_group.name,
+            description=db_group.description,
+            created_by=db_group.created_by,
+            created_at=db_group.created_at.isoformat() if db_group.created_at else None,
+            updated_at=db_group.updated_at.isoformat() if db_group.updated_at else None
+        )
+        print('inside group api.')
+        
+        return group_response
+    
+    except HTTPException as he:
+        raise he
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "status": "error",
+                "message": f"Failed to retrieve group: {str(e)}"
+            }
+        )
 
-@router.post("/groups/{group_id}/members")
+
+@router.post("/{group_id}/members")
 async def add_members(
     group_id: UUID,
     request: AddMembersRequest,
@@ -74,7 +121,7 @@ async def add_members(
 ):
     return await grouprepo.add_group_members(db, group_id, request)
 
-@router.get("/groups/{group_id}/members")
+@router.get("/{group_id}/members")
 async def get_members(
     group_id: UUID,
     db: Session = Depends(get_db)
@@ -156,7 +203,7 @@ async def remove_group_member(
 
 # List all the itenary that are created inside a group.
 
-@router.get("/itinerary-entries/")
+@router.get("/{group_id}/itinerary-entries/")
 def get_itinerary_entries_by_group(
     group_id: UUID,
     skip: int = 0,
@@ -188,7 +235,7 @@ def get_itinerary_entries_by_group(
 
 # attachments
 
-@router.post("/{group_id}", status_code=status.HTTP_201_CREATED)
+@router.post("/attachments", status_code=status.HTTP_201_CREATED)
 async def upload_group_attachment(
     group_id: UUID,
     file: UploadFile = File(...),
@@ -215,7 +262,7 @@ async def upload_group_attachment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{group_id}")
+@router.get("/attachments")
 def list_attachments(
     group_id: UUID,
     attachment_type: Optional[AttachmentType] = None,
@@ -237,7 +284,7 @@ def list_attachments(
     ]
 
 
-@router.get("/file/{attachment_id}")
+@router.get("/attachments/{attachment_id}")
 def get_presigned_url_for_attachment(
     attachment_id: UUID,
     db: Session = Depends(get_db),
@@ -258,7 +305,7 @@ def get_presigned_url_for_attachment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/attachments/{attachment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_attachment(
     attachment_id: UUID,
     db: Session = Depends(get_db),

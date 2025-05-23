@@ -4,7 +4,8 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database Settings
-    DATABASE_URL: str
+    LOCAL_DATABASE_URL: str
+    RDS_DATABASE_URL: str
     
     # JWT Settings
     JWT_SECRET_KEY: str
@@ -25,5 +26,6 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = True
+        extra="allow"
 
 settings = Settings()

@@ -35,7 +35,7 @@ class ExpenseSplit(Base):
     amount = Column(Float, nullable=False)  # Exact amount owed
 
     expense = relationship("Expense", back_populates="splits")
-    settlements = relationship("Settlement", back_populates="expense_split", cascade="all, delete-orphan")
+    # settlements = relationship("Settlement", back_populates="expense_split", cascade="all, delete-orphan")
 
 
 class Settlement(Base):
@@ -49,7 +49,7 @@ class Settlement(Base):
     settled_at = Column(DateTime, default=datetime.utcnow)
     note = Column(Text, nullable=True)
 
-    expense_split = relationship("ExpenseSplit", back_populates="settlements", passive_deletes=True)
+    # expense_split = relationship("ExpenseSplit", back_populates="settlements", passive_deletes=True)
 
 
 class UserBalance(Base):

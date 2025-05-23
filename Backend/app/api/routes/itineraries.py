@@ -4,22 +4,23 @@ from typing import Optional
 from app.core.database import get_db
 from sqlalchemy.orm import Session
 from app.core.auth import get_current_user
-from app.api.schemas.itineraries import ItineraryEntry, ItineraryEntryUpdate
+from app.api.schemas.itineraries import ItineraryRequest, ItineraryEntryUpdate
 from app.api.schemas.auth import UserData 
 from app.models.group_models import Group
+from app.models.itineraries_model import ItineraryEntry
 from app.models.user_models import User
 from app.core.aws import s3_client
 from app.core.config import settings
 from botocore.exceptions import ClientError
 from fastapi.responses import JSONResponse
 
-router = APIRouter()
+router = APIRouter(prefix="/itineraries")
 
 @router.post("/groups/{group_id}/itinerary")
 def itinerary(
-    entry_data: ItineraryEntry,
+    entry_data: ItineraryRequest,
     db: Session = Depends(get_db),
-    current_user: UUID = Depends(get_current_user)
+    current_user: UserData = Depends(get_current_user)
 ):
     new_entry = ItineraryEntry(
         title=entry_data.title,
@@ -27,7 +28,7 @@ def itinerary(
         day_number=entry_data.day_number,
         google_maps_link=entry_data.google_maps_link,  # This will be None if not provided
         group_id=entry_data.group_id,
-        created_by=current_user
+        created_by=current_user.id,
         )
     db.add(new_entry)
     db.commit()
@@ -63,7 +64,7 @@ def get_itinerary_entry(entry_id: UUID, db: Session = Depends(get_db)):
         "creator_name": entry_data.creator_name
     }
 
-@router.patch("/itinerary-entries/{entry_id}", response_model=ItineraryEntry)
+@router.patch("/itinerary-entries/{entry_id}")
 def update_itinerary_entry(
     entry_id: UUID,
     entry_data: ItineraryEntryUpdate,

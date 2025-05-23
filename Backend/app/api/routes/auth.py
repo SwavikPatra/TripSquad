@@ -10,9 +10,9 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 
-router = APIRouter()
+router = APIRouter(prefix="/auth")
 
-@router.post("/auth/signup")
+@router.post("/signup")
 def signup(user_data: UserAuthData, db: Session = Depends(get_db)):
     try:
         print(f"user data : {user_data}")
@@ -23,13 +23,10 @@ def signup(user_data: UserAuthData, db: Session = Depends(get_db)):
     
     return {"message": f"User {user_data.username} successfully signed up!"}, status.HTTP_201_CREATED
 
-@router.post("/auth/login", response_model=Token)
+@router.post("/login", response_model=Token)
 async def login_for_access_token(
     form_data: LoginData,
     db: Session = Depends(get_db)
 ):
     return authrepo.login_user(form_data.email, form_data.password, db)
 
-@router.get("/")
-def home():
-    return "Home is working"
