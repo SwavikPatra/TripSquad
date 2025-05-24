@@ -69,7 +69,7 @@ def update_itinerary_entry(
     entry_id: UUID,
     entry_data: ItineraryEntryUpdate,
     db: Session = Depends(get_db),
-    current_user: UUID = Depends(get_current_user)
+    current_user: UserData = Depends(get_current_user)
 ):
     """
     Update an itinerary entry by ID.
@@ -111,7 +111,7 @@ def update_itinerary_entry(
 def delete_itinerary_entry(
     entry_id: UUID,
     db: Session = Depends(get_db),
-    current_user: UUID = Depends(get_current_user)
+    current_user: UserData = Depends(get_current_user)
 ):
     """
     Delete an itinerary entry by ID.
@@ -129,7 +129,8 @@ def delete_itinerary_entry(
     
     # Check if current user is the creator or has admin rights
     # You'll need to implement your own permission checking logic
-    if entry.created_by != current_user:
+    print(f'entry created by : {entry.created_by}, current user : {current_user.id}')
+    if entry.created_by != current_user.id:
         # Add group admin check here if needed
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
