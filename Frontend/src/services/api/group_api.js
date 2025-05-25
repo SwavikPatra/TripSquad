@@ -83,6 +83,50 @@ export const getItineraryEntry = async (entryId) => {
   return response.data;
 };
 
+// Get group members
+export const getGroupMembers = async (groupId) => {
+  try {
+    const response = await api.get(`${API_PREFIX}/${groupId}/members`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching group members:', error);
+    throw error;
+  }
+};
+
+// Add members to group
+export const addGroupMembers = async (groupId, memberData) => {
+  try {
+    const response = await api.post(`${API_PREFIX}/${groupId}/members`, memberData);
+    return response.data;
+  } catch (error) {
+    console.error('Error adding group members:', error);
+    throw error;
+  }
+};
+
+// Remove member from group
+export const removeGroupMember = async (groupId, userId) => {
+  try {
+    const response = await api.delete(`${API_PREFIX}/${groupId}/members/${userId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error removing group member:', error);
+    throw error;
+  }
+};
+
+// Update member role (make admin)
+export const updateMemberRole = async (groupId, userId, role) => {
+  try {
+    const response = await api.patch(`${API_PREFIX}/${groupId}/members/${userId}/role`, { role });
+    return response.data;
+  } catch (error) {
+    console.error('Error updating member role:', error);
+    throw error;
+  }
+};
+
 // export const getGroupItineraryEntries = async (groupId) => {
 //   const response = await api.get(`/itinerary-entries/?group_id=${groupId}`);
 //   return response.data;

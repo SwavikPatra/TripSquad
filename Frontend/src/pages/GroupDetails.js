@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { getGroupById, createItineraryEntry, getGroupItineraryEntries } from '../services/api/group_api';
+import { updateItineraryEntry } from '../services/api/itinerary_api';
 import GroupInfo from '../components/group/GroupInfo';
 import ItinerarySection from '../components/group/ItinerarySection';
+import GroupMembers from '../components/group/GroupMembers';
 import AddItineraryModal from '../components/group/AddItineraryModal';
+import ItineraryDetailModal from '../components/group/ItineraryDetailModal';
+import EditItineraryModal from '../components/group/EditItineraryModal';
 import { ArrowLeft } from 'lucide-react';
 
 const GroupDetailsPage = () => {
@@ -23,6 +27,13 @@ const GroupDetailsPage = () => {
   const [itineraryError, setItineraryError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  
+  // Modal states
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+  const [updating, setUpdating] = useState(false);
 
   // Load group data
   useEffect(() => {
@@ -79,6 +90,28 @@ const GroupDetailsPage = () => {
     loadItineraryEntries();
   }, [group_id]);
 
+  // Reload itinerary entries helper
+  const reloadItineraryEntries = async () => {
+    setLoading(prev => ({ ...prev, itinerary: true }));
+    try {
+      const entries = await getGroupItineraryEntries(group_id);
+      
+      if (Array.isArray(entries)) {
+        setItineraryEntries(entries);
+      } else if (entries && typeof entries === 'object' && entries.data && Array.isArray(entries.data)) {
+        setItineraryEntries(entries.data);
+      } else {
+        setItineraryEntries([]);
+      }
+      
+    } catch (reloadError) {
+      console.error('Failed to reload itinerary entries:', reloadError);
+      setItineraryError(reloadError.message);
+    } finally {
+      setLoading(prev => ({ ...prev, itinerary: false }));
+    }
+  };
+
   // Handle adding new itinerary entry
   const handleAddItinerary = async (entryData) => {
     try {
@@ -91,24 +124,7 @@ const GroupDetailsPage = () => {
       setShowAddModal(false);
       
       // Reload itinerary entries
-      setLoading(prev => ({ ...prev, itinerary: true }));
-      try {
-        const entries = await getGroupItineraryEntries(group_id);
-        
-        if (Array.isArray(entries)) {
-          setItineraryEntries(entries);
-        } else if (entries && typeof entries === 'object' && entries.data && Array.isArray(entries.data)) {
-          setItineraryEntries(entries.data);
-        } else {
-          setItineraryEntries([]);
-        }
-        
-      } catch (reloadError) {
-        console.error('Failed to reload itinerary entries:', reloadError);
-        setItineraryError(reloadError.message);
-      } finally {
-        setLoading(prev => ({ ...prev, itinerary: false }));
-      }
+      await reloadItineraryEntries();
       
     } catch (err) {
       console.error('Failed to create itinerary entry:', err);
@@ -118,9 +134,55 @@ const GroupDetailsPage = () => {
     }
   };
 
-  // Handle itinerary entry click
+  // Handle itinerary entry click (show detail modal)
   const handleEntryClick = (entryId) => {
-    navigate(`/itinerary/${entryId}`);
+    setSelectedEntryId(entryId);
+    setShowDetailModal(true);
+  };
+
+  // Handle edit button click
+  const handleEditEntry = (entry) => {
+    setSelectedEntry(entry);
+    setShowEditModal(true);
+  };
+
+  // Handle update entry
+  const handleUpdateEntry = async (entryId, updateData) => {
+    try {
+      setUpdating(true);
+      setError(null);
+      
+      await updateItineraryEntry(entryId, updateData);
+      
+      // Close edit modal
+      setShowEditModal(false);
+      setSelectedEntry(null);
+      
+      // Reload itinerary entries
+      await reloadItineraryEntries();
+      
+    } catch (err) {
+      console.error('Failed to update itinerary entry:', err);
+      setError(err.message);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Handle delete entry
+  const handleDeleteEntry = async (entryId) => {
+    try {
+      // Close detail modal
+      setShowDetailModal(false);
+      setSelectedEntryId(null);
+      
+      // Reload itinerary entries
+      await reloadItineraryEntries();
+      
+    } catch (err) {
+      console.error('Failed to handle delete:', err);
+      setError(err.message);
+    }
   };
 
   // Loading state
@@ -176,7 +238,7 @@ const GroupDetailsPage = () => {
           </div>
         )}
 
-        {/* Group Info and Itinerary Section */}
+        {/* Group Info, Itinerary Section, and Members Section */}
         <div className="flex-1 flex gap-6 min-h-0">
           {/* Left: Group Information */}
           <div className="flex-1">
@@ -186,7 +248,7 @@ const GroupDetailsPage = () => {
             />
           </div>
 
-          {/* Right: Itinerary Section */}
+          {/* Center: Itinerary Section */}
           <div className="flex-1">
             <ItinerarySection
               itineraryEntries={itineraryEntries}
@@ -194,6 +256,14 @@ const GroupDetailsPage = () => {
               error={itineraryError}
               onAddClick={() => setShowAddModal(true)}
               onEntryClick={handleEntryClick}
+            />
+          </div>
+
+          {/* Right: Members Section */}
+          <div className="flex-1">
+            <GroupMembers
+              groupId={group_id}
+              group={group}
             />
           </div>
         </div>
@@ -210,6 +280,31 @@ const GroupDetailsPage = () => {
         onClose={() => setShowAddModal(false)}
         onSubmit={handleAddItinerary}
         loading={creating}
+        error={error}
+      />
+
+      {/* Itinerary Detail Modal */}
+      <ItineraryDetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedEntryId(null);
+        }}
+        entryId={selectedEntryId}
+        onEdit={handleEditEntry}
+        onDelete={handleDeleteEntry}
+      />
+
+      {/* Edit Itinerary Modal */}
+      <EditItineraryModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedEntry(null);
+        }}
+        entry={selectedEntry}
+        onUpdate={handleUpdateEntry}
+        loading={updating}
         error={error}
       />
     </div>
