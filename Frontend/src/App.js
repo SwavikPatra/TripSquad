@@ -18,7 +18,7 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <main> 
+        <main>
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
