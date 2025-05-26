@@ -13,6 +13,10 @@ function LandingPage() {
           <p className="mt-2 text-sm text-gray-600">
             This app is in development, please excuse any imperfections.
           </p>
+          <p className="mt-2 text-sm text-gray-600">
+            If the server is currently down, it is likely being temporarily paused to optimize costs. We appreciate your patience!
+          </p>
+
         </div>
         <div className="mt-8">
           <Link
