@@ -1,10 +1,13 @@
 from uuid import UUID
 from sqlalchemy.orm import Session
-from app.models.group_models import Group, GroupMember, MembershipRole
+from sqlalchemy import func
+from typing import List
+from app.models.group_models import Group, GroupMember, MembershipRole, GroupInvite, JoinRequest, InviteStatus
 from fastapi import HTTPException, status, Response
 from fastapi.responses import JSONResponse
-from app.api.schemas.group import AddMembersRequest
+from app.api.schemas.group import AddMembersRequest, GroupJoinRequestOut
 from app.models.user_models import User
+from datetime import datetime, timezone
 
 class GroupRepo:
     def create_group(
@@ -188,6 +191,21 @@ class GroupRepo:
             group_id=group_id,
             role=MembershipRole.ADMIN
         ).count()
+    
+    def is_user_group_admin(
+        self,
+        db: Session,
+        group_id: UUID,
+        current_user : UUID,
+    ):
+        
+        user_role = db.query(GroupMember).filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == current_user
+        ).first()
+        print(f"admin check: {user_role.role}")
+
+        return True if user_role.role == 'admin' else False
 
     def get_oldest_member(
         self,
@@ -230,5 +248,209 @@ class GroupRepo:
             GroupMember.group_id == group_id,
             GroupMember.user_id == user_id
         ).first() is not None
+    
+    def get_or_create_group_secret(self, db: Session, group_id: UUID, current_user: UUID) -> str:
+        """Get existing active secret, refresh if expired, or create new one"""
+        # Try to get existing invite
+        db_invite = db.query(GroupInvite).filter(
+            GroupInvite.group_id == group_id,
+            GroupInvite.is_active == True
+        ).first()
+        print(f"db invite: {db_invite}")
+        
+        # Case 1: Found active unexpired invite
+        if db_invite and db_invite.expires_at > datetime.now(timezone.utc):
+            return db_invite.secret_code
+        print('after if')
+        
+        # Case 2: Found expired invite - refresh it
+        if db_invite:
+            try:
+                db_invite.refresh_code()
+                db.commit()
+                return db_invite.secret_code
+            except Exception as e:
+                db.rollback()
+                raise Exception(f"Failed to refresh invite: {str(e)}")
+        
+        # Case 3: No existing invite - create new
+        new_invite = GroupInvite(
+            group_id=group_id,
+            created_by=current_user,
+            is_active=True
+        )
+        
+        try:
+            db.add(new_invite)
+            db.commit()
+            return new_invite.secret_code
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to create invite: {str(e)}")
+    
+    def join_group_request(
+            self,
+            db: Session,
+            current_user: UUID,
+            secret_code: str,
+    ):
+        try:
+            requested_to_join = db.query(JoinRequest).filter(JoinRequest.user_id== current_user).first()
+            if requested_to_join:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="You already have requested to join."
+                )
+            secret_code_check = db.query(GroupInvite).filter(GroupInvite.secret_code == secret_code).first()
+            if not secret_code_check:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Invite id entry not found."
+                )
+            join_request_data = JoinRequest(
+                invite_id = secret_code_check.secret_code,
+                user_id = current_user,
+                group_id = secret_code_check.group_id,
+                status = 'PENDING',
+            )
+            db.add(join_request_data)
+            db.commit()
+            db.refresh(join_request_data)
+            return True
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to created group invite entry: {str(e)}"
+            )
+    def get_group_join_requests(
+        self,
+        db: Session,
+        group_id: UUID,
+        current_user_id: UUID,
+    ) -> List[GroupJoinRequestOut]:
+        try:
+            join_requests = db.query(JoinRequest,User.id, User.username, User.email).join(User, User.id == JoinRequest.user_id).filter(JoinRequest.group_id == group_id, JoinRequest.status == InviteStatus.PENDING).all()
+            return [
+                GroupJoinRequestOut(
+                    user_id=id,
+                    user_name=username, 
+                    email=email
+                ) 
+                for (_, id, username, email) in join_requests]
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No join requests pending.",
+            )
+    def approve_join_requests(
+        self, 
+        user_id: UUID,
+        group_id: UUID,
+        current_user_id: UUID,
+        db: Session,
+    ):
+        try:
+            # Get the specific join request for this user and group
+            join_request = db.query(JoinRequest).filter(
+                JoinRequest.user_id == user_id,
+                JoinRequest.group_id == group_id,
+                JoinRequest.status == InviteStatus.PENDING
+            ).first()
+            
+            if not join_request:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Only admin can reject group join requests."
+                )
+
+            # Create new group member
+            new_member = GroupMember(
+                group_id=group_id,
+                user_id=user_id,
+                role=MembershipRole.MEMBER
+            )
+
+            # Update join request status
+            join_request.status = InviteStatus.APPROVED
+            join_request.processed_at = func.now()
+            join_request.processed_by = current_user_id
+
+            db.add(new_member)
+            db.commit()
+            db.refresh(new_member)
+            
+            return True
+        
+        except HTTPException:
+            raise  # Re-raise HTTPExceptions
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unable to add new member: {str(e)}"
+            )
+    def reject_join_requests(
+        self, 
+        user_id: UUID,
+        group_id: UUID,
+        current_user_id: UUID,
+        db: Session,
+    ):
+        try:
+            # Get the specific join request for this user and group
+            join_request = db.query(JoinRequest).filter(
+                JoinRequest.user_id == user_id,
+                JoinRequest.group_id == group_id,
+                JoinRequest.status == InviteStatus.PENDING
+            ).first()
+            
+            if not join_request:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Only admin can reject group join requests."
+                )
+            join_request.status = InviteStatus.REJECTED
+            join_request.processed_at = func.now()
+            join_request.processed_by = current_user_id
+            db.commit()
+            db.refresh(join_request)
+            return True
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to reject the join request: {str(e)}"
+            )
+    
+    def promote_to_admin(
+        self,
+        db: Session,
+        group_id: UUID,
+        user_id: UUID
+    ):
+        try:
+            group_member = db.query(GroupMember).filter(
+                GroupMember.group_id == group_id, 
+                GroupMember.user_id == user_id
+            ).first()
+            if not group_member:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="The member is not the member of this group."
+                )
+            group_member.role = MembershipRole.ADMIN
+            db.commit()
+            db.refresh(group_member)
+            return True
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error while promoting user to admin: {str(e)}"
+            )
+
+    
+        
+        
+
+
 grouprepo = GroupRepo()
     

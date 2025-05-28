@@ -57,9 +57,10 @@ export const createGroup = async (groupData) => {
   });
 };
 
-export const joinGroup = async (joinCode) => {
-  return api.post('/groups/join', { code: joinCode });
-};
+// may not need this safe to delete
+// export const joinGroup = async (joinCode) => {
+//   return api.post('/groups/join', { code: joinCode });
+// };
 
 // New functions for GroupDetailsPage
 export const getGroupById = async (groupId) => {
@@ -119,10 +120,58 @@ export const removeGroupMember = async (groupId, userId) => {
 // Update member role (make admin)
 export const updateMemberRole = async (groupId, userId, role) => {
   try {
-    const response = await api.patch(`${API_PREFIX}/${groupId}/members/${userId}/role`, { role });
+    const response = await api.patch(`${API_PREFIX}/${groupId}/admins/${userId}/role`, { role });
     return response.data;
   } catch (error) {
     console.error('Error updating member role:', error);
+    throw error;
+  }
+};
+
+// Join group using secret code
+export const joinGroup = async (secretCode) => {
+  try {
+    const response = await api.post(`${API_PREFIX}/join`, {
+      secret_code: secretCode
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(error.response?.data?.detail || 'Failed to join group');
+  }
+};
+
+// Get join requests for a group (admin only)
+export const getJoinRequests = async (groupId) => {
+  try {
+    const response = await api.get(`${API_PREFIX}/${groupId}/join-requests`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Approve a join request (admin only)
+export const approveJoinRequest = async (groupId, userId) => {
+  try {
+    const response = await api.post(`${API_PREFIX}/approve-join-requests`, {
+      group_id: groupId,
+      user_id: userId
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// Reject a join request (admin only)
+export const rejectJoinRequest = async (groupId, userId) => {
+  try {
+    const response = await api.put(`${API_PREFIX}/reject-join-requests`, {
+      group_id: groupId,
+      user_id: userId
+    });
+    return response.data;
+  } catch (error) {
     throw error;
   }
 };

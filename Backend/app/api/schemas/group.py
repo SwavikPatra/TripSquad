@@ -39,3 +39,17 @@ class GroupResponse(BaseModel):
     created_by: UUID
     created_at: datetime
     updated_at: Optional[datetime] = None
+    secret_code: Optional[str]= None
+    is_current_user_admin: bool = False
+
+class JoinGroupRequestIn(BaseModel):
+    secret_code: str
+
+class GroupJoinRequestOut(BaseModel):
+    user_id: UUID
+    user_name : str
+    email : str
+
+class ApproveJoinRequest(BaseModel):
+    user_id: UUID
+    group_id: UUID

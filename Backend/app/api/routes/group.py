@@ -9,7 +9,7 @@ from app.helper.group_helper import grouphelper
 from uuid import UUID
 from app.repository.group import grouprepo
 from app.models.group_models import GroupMember, GroupAttachment, AttachmentType, MembershipRole
-from app.api.schemas.group import AddMembersRequest, CreateGroupRequest, GroupResponse
+from app.api.schemas.group import AddMembersRequest, CreateGroupRequest, GroupResponse, JoinGroupRequestIn, ApproveJoinRequest
 from app.models.itineraries_model import ItineraryEntry
 from app.models.user_models import User
 from app.core.aws import upload_file_to_s3, delete_file_from_s3, generate_presigned_url
@@ -86,17 +86,27 @@ async def get_group(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Group not found"
             )
+                # Get or create secret code (only for group admins)
+        secret_code = None
+        is_current_user_admin = False
+        if grouprepo.is_user_group_admin(db, group_id, current_user.id):
+            is_current_user_admin = True
+        if is_current_user_admin:
+            secret_code = grouprepo.get_or_create_group_secret(db, group_id, current_user.id)
+        print(f'secret code: {secret_code}')
         
         # Convert to response model
+        print('before group response')
         group_response = GroupResponse(
             id=db_group.id,
             name=db_group.name,
             description=db_group.description,
             created_by=db_group.created_by,
             created_at=db_group.created_at.isoformat() if db_group.created_at else None,
-            updated_at=db_group.updated_at.isoformat() if db_group.updated_at else None
+            updated_at=db_group.updated_at.isoformat() if db_group.updated_at else None,
+            secret_code=secret_code,
+            is_current_user_admin=is_current_user_admin
         )
-        print('inside group api.')
         
         return group_response
     
@@ -340,3 +350,95 @@ async def api_delete_group(
         db=db
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.post("/join")
+def join_group_request(
+    request: JoinGroupRequestIn,
+    current_user: UserData = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    secret_code = request.secret_code
+    if not secret_code:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Secret code is needed to join a group."
+        )
+    try:
+        grouprepo.join_group_request(db, current_user.id, secret_code)
+        return "Group Join request successfully sent."
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while sending group join request: {str(e)}"
+        )
+
+@router.get("/{group_id}/join-requests")
+def get_join_requests(
+    group_id: UUID,
+    current_user: UserData = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not grouprepo.is_user_group_admin(db, group_id, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin can see the group join requests."
+        )
+    return grouprepo.get_group_join_requests(db, group_id, current_user.id)
+
+@router.post("/approve-join-requests")
+def approve_join_requests(
+    request: ApproveJoinRequest,
+    current_user: UserData = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    group_id = request.group_id
+    if not grouprepo.is_user_group_admin(db, group_id, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin can see the group join requests."
+        )
+    grouprepo.approve_join_requests(
+        user_id=request.user_id,
+        group_id=request.group_id,
+        current_user_id=current_user.id,
+        db=db,
+    )
+    return {"message": "User's group join request accepted successfully."}
+
+@router.put("/reject-join-requests")
+def reject_join_requests(
+    request: ApproveJoinRequest,
+    current_user: UserData = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    group_id = request.group_id
+    if not grouprepo.is_user_group_admin(db, group_id, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admin can see the group join requests."
+        )
+    grouprepo.reject_join_requests(
+        user_id=request.user_id,
+        group_id=request.group_id,
+        current_user_id=current_user.id,
+        db=db,
+    )
+    return {"message": "User's group join request rejected successfully."}
+
+@router.patch("/{group_id}/admins/{user_id}/role")
+def grant_admin_role(
+    group_id: UUID,
+    user_id: UUID,  # From URL
+    current_user: UserData = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not grouprepo.is_user_group_admin(db, group_id, current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can assign admin roles"
+        )
+
+    # Business logic to promote user
+    grouprepo.promote_to_admin(db, group_id, user_id)
+    
+    return {"message": f"User {user_id} promoted to admin successfully"}

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createGroup, getUserBalances } from '../services/api/group_api';
+import { createGroup, getUserBalances, joinGroup } from '../services/api/group_api';
 import { getUserGroups } from '../services/api/user_api';
 import CreateGroupForm from '../components/group/CreateGroupForm';
-import AuthForm from '../components/AuthForm';
+import JoinGroupForm from '../components/group/JoinGroupForm';
 import GroupCard from '../components/GroupCard';
 import BalanceCard from '../components/BalanceCard';
 import Modal from '../components/Modal';
@@ -15,7 +15,6 @@ const DashboardPage = () => {
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
@@ -61,19 +60,27 @@ const DashboardPage = () => {
     setError(errorMessage);
   };
 
-  const handleJoinGroup = async (e) => {
-    e.preventDefault();
+  const handleJoinGroupSuccess = async () => {
     try {
-      // Implement join group logic here
-      // await joinGroup(joinCode);
+      // Close the modal
       setShowJoinModal(false);
-      setJoinCode('');
+      // Clear any previous errors
+      setError(null);
+      
       // Refresh groups after joining
       const updatedGroups = await getUserGroups();
       setGroups(updatedGroups);
+      
+      // Also refresh balances as they might have changed
+      const updatedBalances = await getUserBalances();
+      setBalances(updatedBalances);
     } catch (err) {
-      setError(err.message);
+      setError('Group joined successfully, but failed to refresh data. Please refresh manually.');
     }
+  };
+
+  const handleJoinGroupError = (errorMessage) => {
+    setError(errorMessage);
   };
 
   if (loading) {
@@ -171,24 +178,10 @@ const DashboardPage = () => {
         onClose={() => setShowJoinModal(false)}
         title="Join Existing Group"
       >
-        <AuthForm onSubmit={handleJoinGroup}>
-          <div className="mb-4">
-            <label className="block text-gray-700 mb-2">Group Join Code</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              required
-            />
-          </div>
-          <button 
-            type="submit" 
-            className="w-full py-2 px-4 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Join Group
-          </button>
-        </AuthForm>
+        <JoinGroupForm 
+          onSuccess={handleJoinGroupSuccess}
+          onError={handleJoinGroupError}
+        />
       </Modal>
     </div>
   );

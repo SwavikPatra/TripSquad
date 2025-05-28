@@ -13,3 +13,7 @@ class User(Base):
     password = Column(String) 
     
     group_memberships = relationship("GroupMember", back_populates="user")
+
+    # Relationships
+    join_requests = relationship("JoinRequest", foreign_keys="[JoinRequest.user_id]", back_populates="user")
+    processed_requests = relationship("JoinRequest", foreign_keys="[JoinRequest.processed_by]", back_populates="processor")
