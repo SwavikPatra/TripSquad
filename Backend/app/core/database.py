@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import settings
 
 # Set up the database engine
-engine = create_engine(settings.LOCAL_DATABASE_URL, echo=True)
+engine = create_engine(settings.RDS_DATABASE_URL, echo=True)
 
 # Create a SessionLocal class for interacting with the database
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
