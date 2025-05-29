@@ -65,19 +65,26 @@ class ExpenseRepo:
             query = query.filter(Expense.total_amount <= max_amount)
         
         expenses = query.offset(skip).limit(limit).all()
-        
-        return [
-            ExpenseResponse(
-                id=expense.id,
-                title=expense.title,
-                description=expense.description,
-                total_amount=expense.total_amount,
-                created_by=expense.created_by,
-                created_at=expense.created_at,
-                split_type=expense.split_type.value,
-                has_attachments=len(expense.attachments) > 0
-            ) for expense in expenses
-        ]
+        print('inside function call 68')
+        try:    
+            return [
+                ExpenseResponse(
+                    id=expense.id,
+                    title=expense.title,
+                    description=expense.description,
+                    total_amount=expense.total_amount,
+                    created_by=expense.created_by,
+                    created_at=expense.created_at,
+                    split_type=expense.split_type.value,
+                    has_attachments=len(expense.attachments) > 0
+                ) for expense in expenses
+            ]
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"error: {str(e)}"
+            )
+
     def get_expense_by_id(self, db: Session, expense_id: UUID) -> Optional[Expense]:
         """Get raw expense object from database"""
         return db.query(Expense).filter(Expense.id == expense_id).first()

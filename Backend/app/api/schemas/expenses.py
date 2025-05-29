@@ -17,11 +17,11 @@ class ExpenseCreate(BaseModel):
     splits: List[SplitCreate]
 
 class ExpenseResponse(BaseModel):
-    id: str
+    id: UUID
     title: str
     description: Optional[str]
     total_amount: float
-    created_by: str
+    created_by: UUID
     created_at: datetime
     split_type: str
     has_attachments: bool

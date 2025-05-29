@@ -27,10 +27,10 @@ def create_expense(
     current_user: UserData = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Validation (unchanged)
     if payload.split_type == SplitType.CUSTOM:
         if not payload.splits or len(payload.splits) == 0:
             raise HTTPException(status_code=400, detail="Custom split requires non-empty splits list.")
-
         total_split = round(sum(split.amount for split in payload.splits), 2)
         if total_split != round(payload.total_amount, 2):
             raise HTTPException(
@@ -38,7 +38,7 @@ def create_expense(
                 detail=f"Custom split total ({total_split}) does not match total amount ({payload.total_amount})"
             )
 
-    # Create Expense
+    # Create Expense (unchanged)
     expense = Expense(
         group_id=group_id,
         created_by=current_user.id,
@@ -51,22 +51,22 @@ def create_expense(
     db.add(expense)
     db.flush()
 
-    # Prepare splits
+    # Prepare splits - KEY CHANGE: Include payer but with their actual calculated share
     splits = []
     if payload.split_type == SplitType.EQUAL:
-        # Fetch all group members except payer
+        # Get ALL group members including payer
         group_users = db.query(GroupMember.user_id).filter_by(group_id=group_id).all()
-        user_ids = [user_id for (user_id,) in group_users if user_id != current_user.id]
-
-        if not user_ids:
-            raise HTTPException(status_code=400, detail="No other users in the group to split with.")
+        user_ids = [user_id for (user_id,) in group_users]
+        
+        if len(user_ids) < 2:
+            raise HTTPException(status_code=400, detail="Not enough users in the group to split with.")
 
         share = round(payload.total_amount / len(user_ids), 2)
         splits = [
             ExpenseSplit(
                 expense_id=expense.id,
                 user_id=user_id,
-                amount=share
+                amount=share  # Payer gets their calculated share too
             )
             for user_id in user_ids
         ]
@@ -78,15 +78,16 @@ def create_expense(
                 amount=split.amount
             )
             for split in payload.splits
+            # Don't filter out payer - include all specified splits
         ]
 
     db.add_all(splits)
     db.flush()
 
-    # Update balances
+    # Update balances - KEY CHANGE: Skip payer's entry
     for split in splits:
         if split.user_id == current_user.id:
-            continue  # You don't owe yourself
+            continue  # Skip balance update for payer
 
         balance = db.query(UserBalance).filter_by(
             debtor_id=split.user_id,
@@ -104,8 +105,6 @@ def create_expense(
                 amount=split.amount
             )
             db.add(balance)
-        
-        
 
     db.commit()
 
@@ -286,6 +285,7 @@ async def list_group_expenses(
             min_amount=min_amount,
             max_amount=max_amount
         )
+        print(f"expenses: {expenses}")
         
         return expenses
         

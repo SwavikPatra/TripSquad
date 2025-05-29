@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { getGroupById, createItineraryEntry, getGroupItineraryEntries } from '../services/api/group_api';
 import { updateItineraryEntry } from '../services/api/itinerary_api';
+import { createExpense } from '../services/api/expense_api';
 import GroupInfo from '../components/group/GroupInfo';
 import ItinerarySection from '../components/group/ItinerarySection';
 import GroupMembers from '../components/group/GroupMembers';
 import AddItineraryModal from '../components/group/AddItineraryModal';
 import ItineraryDetailModal from '../components/group/ItineraryDetailModal';
 import EditItineraryModal from '../components/group/EditItineraryModal';
-import { ArrowLeft } from 'lucide-react';
+import CreateExpenseModal from '../components/expense/CreateExpenseModal';
+import ExpensesListModal from '../components/expense/ExpensesListModal'; // New import
+import { ArrowLeft, Eye } from 'lucide-react';
+import { FaIndianRupeeSign } from "react-icons/fa6";
+
+const RupeeIcon = () => <FaIndianRupeeSign />;
 
 const GroupDetailsPage = () => {
   // Mock useParams - replace with your actual router implementation
@@ -34,6 +40,11 @@ const GroupDetailsPage = () => {
   const [selectedEntryId, setSelectedEntryId] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [updating, setUpdating] = useState(false);
+
+  // Expense modal states
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [creatingExpense, setCreatingExpense] = useState(false);
+  const [showExpensesListModal, setShowExpensesListModal] = useState(false); // New state for expenses list modal
 
   // Load group data
   useEffect(() => {
@@ -134,6 +145,28 @@ const GroupDetailsPage = () => {
     }
   };
 
+  // Handle creating new expense
+  const handleCreateExpense = async (expenseData) => {
+    try {
+      setCreatingExpense(true);
+      setError(null);
+      
+      await createExpense(group_id, expenseData);
+      
+      // Close modal
+      setShowExpenseModal(false);
+      
+      console.log('Expense created successfully');
+      
+    } catch (err) {
+      console.error('Failed to create expense:', err);
+      setError(err.message);
+      throw err; // Re-throw to let the modal handle the error
+    } finally {
+      setCreatingExpense(false);
+    }
+  };
+
   // Handle itinerary entry click (show detail modal)
   const handleEntryClick = (entryId) => {
     setSelectedEntryId(entryId);
@@ -229,6 +262,25 @@ const GroupDetailsPage = () => {
               {group?.name || 'Group Details'}
             </h1>
           </div>
+          {/* Action Buttons - Only show if group exists */}
+          {group && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowExpensesListModal(true)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                See All Expenses
+              </button>
+              <button
+                onClick={() => setShowExpenseModal(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+              >
+                <FaIndianRupeeSign className="w-4 h-4 mr-2" />
+                Add Expense
+              </button>
+            </div>
+          )}
         </header>
 
         {/* Error display */}
@@ -244,7 +296,7 @@ const GroupDetailsPage = () => {
           <div className="flex-1">
             <GroupInfo 
               group={group} 
-              loading={loading.group} 
+              loading={loading.group}
             />
           </div>
 
@@ -306,6 +358,23 @@ const GroupDetailsPage = () => {
         onUpdate={handleUpdateEntry}
         loading={updating}
         error={error}
+      />
+
+      {/* Create Expense Modal */}
+      <CreateExpenseModal
+        isOpen={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
+        onSubmit={handleCreateExpense}
+        groupId={group_id}
+        loading={creatingExpense}
+        error={error}
+      />
+
+      {/* Expenses List Modal */}
+      <ExpensesListModal
+        isOpen={showExpensesListModal}
+        onClose={() => setShowExpensesListModal(false)}
+        groupId={group_id}
       />
     </div>
   );
