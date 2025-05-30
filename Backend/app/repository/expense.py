@@ -28,7 +28,10 @@ class ExpenseRepo:
                 detail="You don't have permissions to delete the expense."
             )
         split = db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == expense_id).all()
-        for user_id, amount in split:
+        print("printing...31")
+        for expense_split in split:  # Each expense_split is an ExpenseSplit object
+            user_id = expense_split.user_id  # Access attributes directly
+            amount = expense_split.amount
             if user_id != current_user_id:
                 balance = db.query(UserBalance).filter(
                     UserBalance.debtor_id == user_id,
@@ -36,7 +39,7 @@ class ExpenseRepo:
                     UserBalance.group_id == group_id
                 ).one()
                 balance.amount -= amount
-                
+        print("printing...40")    
         db.delete(expense)
         db.commit()
         return {"message": "Expense deleted and balances updated"}
@@ -263,7 +266,7 @@ class ExpenseRepo:
                 note =  note,
             ) 
             db.add(settlement)
-
+            print(f"group_id: {group_id}, debtor_id: {paid_by}, creditor_id: {paid_to}")
             user_balance = db.query(UserBalance).filter(
                 UserBalance.group_id == group_id,
                 UserBalance.debtor_id == paid_by,
@@ -286,7 +289,7 @@ class ExpenseRepo:
             else:
                 db.add(user_balance)
             db.commit()
-            db.refresh()
+            db.refresh(settlement)
         except Exception as e:
             db.rollback()
             raise HTTPException(
@@ -333,6 +336,6 @@ class ExpenseRepo:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Not able to delete the settlement."
+                detail=f"Not able to delete the settlement: {str(e)}"
             )
 expenserepo = ExpenseRepo()

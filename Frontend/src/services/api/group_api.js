@@ -43,7 +43,8 @@ export const getAttachmentUrl = async (attachmentId) => {
 };
 
 export const getUserBalances = async () => {
-  return api.get(`/user/balances`);
+  const response = await api.get(`/user/balances`);
+  return response.data;
 };
 
 export const deleteAttachment = async (attachmentId) => {

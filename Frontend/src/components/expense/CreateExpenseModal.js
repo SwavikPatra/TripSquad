@@ -332,7 +332,7 @@ const CreateExpenseModal = ({ isOpen, onClose, onSubmit, groupId, loading, error
                           <div className="flex items-center text-sm">
                             {formData.split_type === 'equal' ? (
                               <span className="text-green-600 font-medium">
-                                ${equalSplitAmount.toFixed(2)}
+                                ₹{equalSplitAmount.toFixed(2)}
                               </span>
                             ) : (
                               <input
@@ -368,7 +368,7 @@ const CreateExpenseModal = ({ isOpen, onClose, onSubmit, groupId, loading, error
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between">
                     <span>Total Amount:</span>
-                    <span className="font-medium">${totalAmount.toFixed(2)}</span>
+                    <span className="font-medium">₹{totalAmount.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Selected Members:</span>
@@ -377,7 +377,7 @@ const CreateExpenseModal = ({ isOpen, onClose, onSubmit, groupId, loading, error
                   {formData.split_type === 'equal' && (
                     <div className="flex justify-between">
                       <span>Amount per person:</span>
-                      <span className="font-medium">${equalSplitAmount.toFixed(2)}</span>
+                      <span className="font-medium">₹{equalSplitAmount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>

@@ -10,12 +10,12 @@ from app.models.user_models import User
 class UserRepo:
     def get_user_balances(
         self,
-        current_user: UUID,
+        current_user_id: UUID,
         db: Session
     ):
-        group_ids = db.query(GroupMember.group_id).filter_by(
-            user_id=current_user.id
-        ).scalars().all()
+        group_ids = [g.group_id for g in db.query(GroupMember.group_id).filter_by(
+            user_id=current_user_id
+        ).all()]
 
         if not group_ids:
             return []
@@ -23,15 +23,15 @@ class UserRepo:
         # 2. Get all relevant balances (both directions)
         balances = db.query(UserBalance).filter(
             UserBalance.group_id.in_(group_ids),
-            (UserBalance.debtor_id == current_user.id) | 
-            (UserBalance.creditor_id == current_user.id)
+            (UserBalance.debtor_id == current_user_id) | 
+            (UserBalance.creditor_id == current_user_id)
         ).all()
 
         # 3. Calculate net amounts per user per group
         net_balances = defaultdict(lambda: defaultdict(float))
         
         for b in balances:
-            if b.debtor_id == current_user.id:
+            if b.debtor_id == current_user_id:
                 other_user = b.creditor_id
                 net_balances[b.group_id][other_user] -= b.amount  # You owe
             else:
@@ -69,48 +69,54 @@ class UserRepo:
         current_user: UUID,
         db: Session
     ):
-        # 1. Verify user is in this group
-        if not db.query(GroupMember).filter_by(
-            group_id=group_id,
-            user_id=current_user
-        ).first():
+        try:
+            # 1. Verify user is in this group
+            if not db.query(GroupMember).filter_by(
+                group_id=group_id,
+                user_id=current_user
+            ).first():
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You're not a member of this group"
+                )
+
+            # 2. Get all relevant balances in this group
+            balances = db.query(UserBalance).filter(
+                UserBalance.group_id == group_id,
+                (UserBalance.debtor_id == current_user) | 
+                (UserBalance.creditor_id == current_user)
+            ).all()
+
+            # 3. Calculate net amounts per user
+            net_balances = defaultdict(float)
+            
+            for b in balances:
+                if b.debtor_id == current_user:
+                    other_user = b.creditor_id
+                    net_balances[other_user] -= b.amount  # You owe
+                else:
+                    other_user = b.debtor_id
+                    net_balances[other_user] += b.amount  # They owe
+
+            # 4. Fetch usernames in one query
+            user_ids = list(net_balances.keys())
+            users = {u.id: u.username for u in db.query(User.id, User.username).filter(
+                User.id.in_(user_ids)
+            ).all()}
+
+            # 5. Format response (skip zero balances)
+            balance_data =  [{
+                "other_user_name": users[user_id],
+                "net_amount": abs(amount),
+                "direction": "owes_you" if amount > 0 else "you_owe"
+            } for user_id, amount in net_balances.items() if amount != 0]
+
+            return balance_data
+        except Exception as e:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You're not a member of this group"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unable to load user balance for this grop: {str(e)}"
             )
-
-        # 2. Get all relevant balances in this group
-        balances = db.query(UserBalance).filter(
-            UserBalance.group_id == group_id,
-            (UserBalance.debtor_id == current_user) | 
-            (UserBalance.creditor_id == current_user)
-        ).all()
-
-        # 3. Calculate net amounts per user
-        net_balances = defaultdict(float)
-        
-        for b in balances:
-            if b.debtor_id == current_user:
-                other_user = b.creditor_id
-                net_balances[other_user] -= b.amount  # You owe
-            else:
-                other_user = b.debtor_id
-                net_balances[other_user] += b.amount  # They owe
-
-        # 4. Fetch usernames in one query
-        user_ids = list(net_balances.keys())
-        users = {u.id: u.username for u in db.query(User.id, User.username).filter(
-            User.id.in_(user_ids)
-        ).all()}
-
-        # 5. Format response (skip zero balances)
-        balance_data =  [{
-            "other_user_name": users[user_id],
-            "net_amount": abs(amount),
-            "direction": "owes_you" if amount > 0 else "you_owe"
-        } for user_id, amount in net_balances.items() if amount != 0]
-
-        return balance_data
     def get_user_groups(
             self,
             user_id: UUID,

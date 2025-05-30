@@ -15,14 +15,12 @@ router = APIRouter(prefix="/user")
 
 @router.get("/balances")
 def get_user_balances(
-    user_id: UUID,
     db : Session = Depends(get_db),
     current_user: UserData = Depends(get_current_user)
 ):
     return userrepo.get_user_balances(
-        user_id=user_id,
+        current_user_id=current_user.id,
         db=db,
-        current_user=current_user.id
     )
 
 @router.get("/groups/{group_id}/balances")

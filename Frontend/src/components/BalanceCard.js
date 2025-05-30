@@ -12,7 +12,7 @@ const BalanceCard = ({ balance }) => {
           : `You owe ${balance.other_user_name}`}
       </p>
       <div className="text-xl font-bold">
-        ${balance.net_amount.toFixed(2)}
+        ₹{balance.net_amount.toFixed(2)}
       </div>
     </div>
   );

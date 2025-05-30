@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 
 from app.models.expense_models import Expense, ExpenseSplit, UserBalance, SplitType, Attachment
-from app.api.schemas.expenses import ExpenseCreate
+from app.api.schemas.expenses import ExpenseCreate, SettlementsListResponse, SettlementResponse
 from app.core.database import get_db
 from app.core.auth import get_current_user
 from app.api.schemas.auth import UserData
@@ -15,7 +15,7 @@ from app.api.schemas.auth import UserData
 from app.models.group_models import GroupMember  # Assuming this exists
 from app.repository.expense import expenserepo
 from app.core.aws import upload_file_to_s3, delete_file_from_s3, generate_presigned_url
-from app.api.schemas.expenses import ExpenseResponse, ExpenseUpdateRequest
+from app.api.schemas.expenses import ExpenseResponse, ExpenseUpdateRequest, SettlementCreate
 from typing import Optional, List, Text
 
 router = APIRouter(prefix="/expenses", tags=["Expenses"])
@@ -247,17 +247,23 @@ def delete_attachment(
     return {"message": "Attachment deleted successfully"}
 
 @router.delete("/group/{group_id}/expense/{expense_id}")
-async def api_delete_expense(
+async def delete_expense(
     group_id: UUID,
     expense_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserData = Depends(get_current_user)
 ):
-    deleted = expenserepo.delete_expense(db, group_id, expense_id, current_user.id) 
-    return JSONResponse(
-        status_code=200,
-        content={"message": "Expense deleted"}
-    )
+    try:
+        deleted = expenserepo.delete_expense(db, group_id, expense_id, current_user.id) 
+        return JSONResponse(
+            status_code=200,
+            content={"message": "Expense deleted"}
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error while deleting expense: {str(e)}"
+        )
 
 @router.get("/group/{group_id}/expenses/", response_model=List[ExpenseResponse])
 async def list_group_expenses(
@@ -382,11 +388,11 @@ def update_expense(
             detail=f"Error updating expense: {str(e)}"
         )
 
-@router.get("/group/{group_id}/settlements")
+@router.get("/group/{group_id}/settlements", response_model=SettlementsListResponse)
 def list_all_settlements(
     group_id: UUID,
-    paid_by: Optional[UUID],
-    paid_to: Optional[UUID],
+    paid_by: Optional[UUID] = None,
+    paid_to: Optional[UUID] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(None, ge=1),
     db: Session = Depends(get_db),
@@ -403,28 +409,28 @@ def list_all_settlements(
             db = db,
             current_user = current_user.id,
         )
-        settlements = [
-            {
-                "id": str(s.id),
-                "paid_by" : str(s.paid_by),
-                "paid_to" : str(s.paid_to),
-                "amount" : s.amount,
-                "settled_at" : s.settled_at,
-                "note" : s.note 
-            } for s in settlements
+        
+        settlement_responses = [
+            SettlementResponse(
+                id=str(s.id),
+                paid_by=str(s.paid_by),
+                paid_to=str(s.paid_to),
+                amount=s.amount,
+                settled_at=s.settled_at,
+                note=s.note,
+                can_delete=s.paid_by == current_user.id
+            ) for s in settlements
         ]
-        return JSONResponse(
-            status_code = status.HTTP_200_OK,
-            content={
-                "status" : "Success",
-                "message" : "All settlements retrived successfully.",
-                "data" : settlements
-            }
+        
+        return SettlementsListResponse(
+            status="Success",
+            message="All settlements retrieved successfully.",
+            data=settlement_responses
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail= f"Failed to retrive settlements: {str(e)}"
+            detail= f"Failed to retrieve settlements: {str(e)}"
         )
 
 @router.get("/group/{group_id}/settlement/{settlement_id}")
@@ -518,13 +524,14 @@ async def get_user_splits_in_group(
 
 @router.post('/group/user/settlement', status_code=201)
 def create_user_settlement(
-    group_id: UUID,
-    paid_to: UUID,
-    amount: float,
-    note: Text,
+    settlement_data: SettlementCreate,
     current_user: UserData = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    group_id = settlement_data.group_id
+    paid_to = settlement_data.paid_to
+    amount = settlement_data.amount
+    note = settlement_data.note
     if current_user.id == paid_to:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getGroupById, createItineraryEntry, getGroupItineraryEntries } from '../services/api/group_api';
+import { getGroupById, createItineraryEntry, getGroupItineraryEntries, getGroupMembers } from '../services/api/group_api';
 import { updateItineraryEntry } from '../services/api/itinerary_api';
 import { createExpense } from '../services/api/expense_api';
+import { createUserSettlement } from '../services/api/expense_api'; // New import
 import GroupInfo from '../components/group/GroupInfo';
 import ItinerarySection from '../components/group/ItinerarySection';
 import GroupMembers from '../components/group/GroupMembers';
@@ -9,8 +10,12 @@ import AddItineraryModal from '../components/group/AddItineraryModal';
 import ItineraryDetailModal from '../components/group/ItineraryDetailModal';
 import EditItineraryModal from '../components/group/EditItineraryModal';
 import CreateExpenseModal from '../components/expense/CreateExpenseModal';
-import ExpensesListModal from '../components/expense/ExpensesListModal'; // New import
-import { ArrowLeft, Eye } from 'lucide-react';
+import ExpensesListModal from '../components/expense/ExpensesListModal';
+import CreateSettlementModal from '../components/expense/CreateSettlementModal'; // New import
+import SettlementsListModal from '../components/expense/SettlementsListModal';
+import UserBalanceModal from '../components/expense/UserBalanceModal'; // New import
+
+import { ArrowLeft, Eye, HandCoins, Wallet } from 'lucide-react';
 import { FaIndianRupeeSign } from "react-icons/fa6";
 
 const RupeeIcon = () => <FaIndianRupeeSign />;
@@ -24,10 +29,12 @@ const GroupDetailsPage = () => {
   
   // State management
   const [group, setGroup] = useState(null);
+  const [groupMembers, setGroupMembers] = useState([]);
   const [itineraryEntries, setItineraryEntries] = useState([]);
   const [loading, setLoading] = useState({
     group: true,
-    itinerary: true
+    itinerary: true,
+    members: true
   });
   const [error, setError] = useState(null);
   const [itineraryError, setItineraryError] = useState(null);
@@ -44,7 +51,18 @@ const GroupDetailsPage = () => {
   // Expense modal states
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [creatingExpense, setCreatingExpense] = useState(false);
-  const [showExpensesListModal, setShowExpensesListModal] = useState(false); // New state for expenses list modal
+  const [showExpensesListModal, setShowExpensesListModal] = useState(false);
+
+  // Settlement modal states - New states
+  const [showSettlementModal, setShowSettlementModal] = useState(false);
+  const [creatingSettlement, setCreatingSettlement] = useState(false);
+  const [showSettlementsListModal, setShowSettlementsListModal] = useState(false);
+
+  // Balance modal state - New state
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
+
+  // Mock current user ID - replace with your actual auth implementation
+  const currentUserId = 'current-user-id'; // You should get this from your auth context
 
   // Load group data
   useEffect(() => {
@@ -54,15 +72,20 @@ const GroupDetailsPage = () => {
       try {
         setError(null);
         
-        // Load group details
-        const groupData = await getGroupById(group_id);
+        // Load group details and members in parallel
+        const [groupData, membersData] = await Promise.all([
+          getGroupById(group_id),
+          getGroupMembers(group_id)
+        ]);
+        
         setGroup(groupData);
+        setGroupMembers(Array.isArray(membersData) ? membersData : membersData?.data || []);
         
       } catch (err) {
-        console.error('Failed to load group:', err);
+        console.error('Failed to load group data:', err);
         setError(err.message);
       } finally {
-        setLoading(prev => ({ ...prev, group: false }));
+        setLoading(prev => ({ ...prev, group: false, members: false }));
       }
     };
 
@@ -167,6 +190,28 @@ const GroupDetailsPage = () => {
     }
   };
 
+  // Handle creating new settlement - New function
+  const handleCreateSettlement = async (settlementData) => {
+    try {
+      setCreatingSettlement(true);
+      setError(null);
+      
+      await createUserSettlement(group_id, settlementData);
+      
+      // Close modal
+      setShowSettlementModal(false);
+      
+      console.log('Settlement created successfully');
+      
+    } catch (err) {
+      console.error('Failed to create settlement:', err);
+      setError(err.message);
+      throw err; // Re-throw to let the modal handle the error
+    } finally {
+      setCreatingSettlement(false);
+    }
+  };
+
   // Handle itinerary entry click (show detail modal)
   const handleEntryClick = (entryId) => {
     setSelectedEntryId(entryId);
@@ -219,7 +264,7 @@ const GroupDetailsPage = () => {
   };
 
   // Loading state
-  if (loading.group) {
+  if (loading.group || loading.members) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -266,6 +311,13 @@ const GroupDetailsPage = () => {
           {group && (
             <div className="flex gap-3">
               <button
+                onClick={() => setShowBalanceModal(true)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center"
+              >
+                <Wallet className="w-4 h-4 mr-2" />
+                Your Balance
+              </button>
+              <button
                 onClick={() => setShowExpensesListModal(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
               >
@@ -278,6 +330,21 @@ const GroupDetailsPage = () => {
               >
                 <FaIndianRupeeSign className="w-4 h-4 mr-2" />
                 Add Expense
+              </button>
+              {/* New Settlement Button */}
+              <button
+                onClick={() => setShowSettlementModal(true)}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
+              >
+                <HandCoins className="w-4 h-4 mr-2" />
+                Create Settlement
+              </button>
+              <button
+                onClick={() => setShowSettlementsListModal(true)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center"
+              >
+                <HandCoins className="w-4 h-4 mr-2" />
+                View Settlements
               </button>
             </div>
           )}
@@ -335,6 +402,14 @@ const GroupDetailsPage = () => {
         error={error}
       />
 
+      {/* Settlements List Modal */}
+      <SettlementsListModal
+        isOpen={showSettlementsListModal}
+        onClose={() => setShowSettlementsListModal(false)}
+        groupId={group_id}
+        groupMembers={groupMembers}
+      />
+
       {/* Itinerary Detail Modal */}
       <ItineraryDetailModal
         isOpen={showDetailModal}
@@ -374,6 +449,25 @@ const GroupDetailsPage = () => {
       <ExpensesListModal
         isOpen={showExpensesListModal}
         onClose={() => setShowExpensesListModal(false)}
+        groupId={group_id}
+      />
+
+      {/* Create Settlement Modal - New Modal */}
+      <CreateSettlementModal
+        isOpen={showSettlementModal}
+        onClose={() => setShowSettlementModal(false)}
+        onSubmit={handleCreateSettlement}
+        groupId={group_id}
+        groupMembers={groupMembers}
+        currentUserId={currentUserId}
+        loading={creatingSettlement}
+        error={error}
+      />
+
+      {/* User Balance Modal - New Modal */}
+      <UserBalanceModal
+        isOpen={showBalanceModal}
+        onClose={() => setShowBalanceModal(false)}
         groupId={group_id}
       />
     </div>

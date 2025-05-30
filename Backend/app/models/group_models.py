@@ -97,6 +97,8 @@ class GroupInvite(Base):
         return ''.join(secrets.choice(alphabet) for _ in range(length))
     
     def refresh_code(self):
+        for request in self.requests:
+            request.status = InviteStatus.REJECTED
         self.secret_code = self._generate_code()
         self.last_refreshed_at = func.now()
         self.expires_at = func.now() + timedelta(days=1)
