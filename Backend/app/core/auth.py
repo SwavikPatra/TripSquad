@@ -33,14 +33,12 @@ async def get_current_user(
         user = get_user_by_email(db, email)
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        print(f"user data: {user.email}, {user.id}, {user.username}")
         try:
             user_data = UserData(
                 id=user.id, 
                 email=user.email, 
                 username=user.username
             )
-            print(f"UserData created successfully: {user_data}")
             return user_data
             
         except ValidationError as ve:

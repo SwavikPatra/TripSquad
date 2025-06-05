@@ -37,7 +37,9 @@ class Group(Base):
     members = relationship("GroupMember", back_populates="group")
     itinerary_entries = relationship("ItineraryEntry", back_populates="group", cascade="all, delete-orphan")
     invites = relationship("GroupInvite", back_populates="group", cascade="all, delete-orphan")
-
+    polls = relationship("Poll", back_populates="group", cascade="all, delete-orphan")
+    creator = relationship("User")
+    
 class GroupMember(Base):
     __tablename__ = "group_members"
     

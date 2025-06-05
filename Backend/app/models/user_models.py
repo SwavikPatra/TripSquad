@@ -12,8 +12,10 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String) 
     
-    group_memberships = relationship("GroupMember", back_populates="user")
 
     # Relationships
+    created_polls = relationship("Poll", back_populates="creator")
+    poll_votes = relationship("UserVote", back_populates="user")
+    group_memberships = relationship("GroupMember", back_populates="user")
     join_requests = relationship("JoinRequest", foreign_keys="[JoinRequest.user_id]", back_populates="user")
     processed_requests = relationship("JoinRequest", foreign_keys="[JoinRequest.processed_by]", back_populates="processor")

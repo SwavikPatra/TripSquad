@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { getGroupById, createItineraryEntry, getGroupItineraryEntries, getGroupMembers } from '../services/api/group_api';
 import { updateItineraryEntry } from '../services/api/itinerary_api';
 import { createExpense } from '../services/api/expense_api';
-import { createUserSettlement } from '../services/api/expense_api'; // New import
+import { createUserSettlement } from '../services/api/expense_api';
 import GroupInfo from '../components/group/GroupInfo';
 import ItinerarySection from '../components/group/ItinerarySection';
-import GroupMembers from '../components/group/GroupMembers';
+import PollSection from '../components/poll/PollSection'; // Add this import
 import AddItineraryModal from '../components/group/AddItineraryModal';
 import ItineraryDetailModal from '../components/group/ItineraryDetailModal';
 import EditItineraryModal from '../components/group/EditItineraryModal';
 import CreateExpenseModal from '../components/expense/CreateExpenseModal';
 import ExpensesListModal from '../components/expense/ExpensesListModal';
-import CreateSettlementModal from '../components/expense/CreateSettlementModal'; // New import
+import CreateSettlementModal from '../components/expense/CreateSettlementModal';
 import SettlementsListModal from '../components/expense/SettlementsListModal';
-import UserBalanceModal from '../components/expense/UserBalanceModal'; // New import
+import UserBalanceModal from '../components/expense/UserBalanceModal';
 
 import { ArrowLeft, Eye, HandCoins, Wallet } from 'lucide-react';
 import { FaIndianRupeeSign } from "react-icons/fa6";
@@ -53,16 +53,16 @@ const GroupDetailsPage = () => {
   const [creatingExpense, setCreatingExpense] = useState(false);
   const [showExpensesListModal, setShowExpensesListModal] = useState(false);
 
-  // Settlement modal states - New states
+  // Settlement modal states
   const [showSettlementModal, setShowSettlementModal] = useState(false);
   const [creatingSettlement, setCreatingSettlement] = useState(false);
   const [showSettlementsListModal, setShowSettlementsListModal] = useState(false);
 
-  // Balance modal state - New state
+  // Balance modal state
   const [showBalanceModal, setShowBalanceModal] = useState(false);
 
   // Mock current user ID - replace with your actual auth implementation
-  const currentUserId = 'current-user-id'; // You should get this from your auth context
+  const currentUserId = 'current-user-id';
 
   // Load group data
   useEffect(() => {
@@ -190,7 +190,7 @@ const GroupDetailsPage = () => {
     }
   };
 
-  // Handle creating new settlement - New function
+  // Handle creating new settlement
   const handleCreateSettlement = async (settlementData) => {
     try {
       setCreatingSettlement(true);
@@ -331,7 +331,6 @@ const GroupDetailsPage = () => {
                 <FaIndianRupeeSign className="w-4 h-4 mr-2" />
                 Add Expense
               </button>
-              {/* New Settlement Button */}
               <button
                 onClick={() => setShowSettlementModal(true)}
                 className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center"
@@ -357,7 +356,7 @@ const GroupDetailsPage = () => {
           </div>
         )}
 
-        {/* Group Info, Itinerary Section, and Members Section */}
+        {/* Group Info, Itinerary Section, and Poll Section */}
         <div className="flex-1 flex gap-6 min-h-0">
           {/* Left: Group Information */}
           <div className="flex-1">
@@ -378,9 +377,9 @@ const GroupDetailsPage = () => {
             />
           </div>
 
-          {/* Right: Members Section */}
+          {/* Right: Poll Section - Replace the placeholder */}
           <div className="flex-1">
-            <GroupMembers
+            <PollSection
               groupId={group_id}
               group={group}
             />
@@ -452,7 +451,7 @@ const GroupDetailsPage = () => {
         groupId={group_id}
       />
 
-      {/* Create Settlement Modal - New Modal */}
+      {/* Create Settlement Modal */}
       <CreateSettlementModal
         isOpen={showSettlementModal}
         onClose={() => setShowSettlementModal(false)}
@@ -464,7 +463,7 @@ const GroupDetailsPage = () => {
         error={error}
       />
 
-      {/* User Balance Modal - New Modal */}
+      {/* User Balance Modal */}
       <UserBalanceModal
         isOpen={showBalanceModal}
         onClose={() => setShowBalanceModal(false)}

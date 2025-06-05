@@ -6,7 +6,8 @@ from app.api.routes import(
     expenses,
     test,
     itineraries,
-    user
+    user,
+    poll
 )
 
 api_router = APIRouter()
@@ -17,3 +18,4 @@ api_router.include_router(expenses.router, tags=['Expenses'])
 api_router.include_router(itineraries.router, tags=['Itineraries'])
 api_router.include_router(test.router, tags=['aws-s3'])
 api_router.include_router(user.router, tags=['user'])
+api_router.include_router(poll.router, tags=['poll'])
