@@ -4,8 +4,9 @@ import { updateItineraryEntry } from '../services/api/itinerary_api';
 import { createExpense } from '../services/api/expense_api';
 import { createUserSettlement } from '../services/api/expense_api';
 import GroupInfo from '../components/group/GroupInfo';
+import GroupInfoModal from '../components/group/GroupInfoModal'; // New import
 import ItinerarySection from '../components/group/ItinerarySection';
-import PollSection from '../components/poll/PollSection'; // Add this import
+import PollSection from '../components/poll/PollSection';
 import AddItineraryModal from '../components/group/AddItineraryModal';
 import ItineraryDetailModal from '../components/group/ItineraryDetailModal';
 import EditItineraryModal from '../components/group/EditItineraryModal';
@@ -15,7 +16,7 @@ import CreateSettlementModal from '../components/expense/CreateSettlementModal';
 import SettlementsListModal from '../components/expense/SettlementsListModal';
 import UserBalanceModal from '../components/expense/UserBalanceModal';
 
-import { ArrowLeft, Eye, HandCoins, Wallet } from 'lucide-react';
+import { ArrowLeft, Eye, HandCoins, Wallet, Info } from 'lucide-react';
 import { FaIndianRupeeSign } from "react-icons/fa6";
 
 const RupeeIcon = () => <FaIndianRupeeSign />;
@@ -60,6 +61,9 @@ const GroupDetailsPage = () => {
 
   // Balance modal state
   const [showBalanceModal, setShowBalanceModal] = useState(false);
+
+  // New state for group info modal
+  const [showGroupInfoModal, setShowGroupInfoModal] = useState(false);
 
   // Mock current user ID - replace with your actual auth implementation
   const currentUserId = 'current-user-id';
@@ -303,9 +307,14 @@ const GroupDetailsPage = () => {
             >
               <ArrowLeft size={24} />
             </button>
-            <h1 className="text-3xl font-bold text-gray-800">
+            {/* Clickable group name that opens modal */}
+            <button
+              onClick={() => setShowGroupInfoModal(true)}
+              className="text-3xl font-bold text-gray-800 hover:text-blue-600 transition-colors flex items-center"
+            >
               {group?.name || 'Group Details'}
-            </h1>
+              <Info className="w-6 h-6 ml-2 text-gray-500" />
+            </button>
           </div>
           {/* Action Buttons - Only show if group exists */}
           {group && (
@@ -358,7 +367,7 @@ const GroupDetailsPage = () => {
 
         {/* Group Info, Itinerary Section, and Poll Section */}
         <div className="flex-1 flex gap-6 min-h-0">
-          {/* Left: Group Information */}
+          {/* Left: Group Information (now for images and documents) */}
           <div className="flex-1">
             <GroupInfo 
               group={group} 
@@ -377,7 +386,7 @@ const GroupDetailsPage = () => {
             />
           </div>
 
-          {/* Right: Poll Section - Replace the placeholder */}
+          {/* Right: Poll Section */}
           <div className="flex-1">
             <PollSection
               groupId={group_id}
@@ -391,6 +400,14 @@ const GroupDetailsPage = () => {
       <div className="h-7/10 mt-6 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center">
         <p className="text-gray-500">This space is reserved for future features</p>
       </div>
+
+      {/* Group Info Modal */}
+      <GroupInfoModal
+        isOpen={showGroupInfoModal}
+        onClose={() => setShowGroupInfoModal(false)}
+        group={group}
+        groupMembers={groupMembers}
+      />
 
       {/* Add Itinerary Modal */}
       <AddItineraryModal
