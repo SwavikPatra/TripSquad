@@ -17,6 +17,39 @@ class PollBase(BaseModel):
 class PollCreate(PollBase):
     options: List[str]
 
+class VotersResponse(BaseModel):
+    id: UUID
+    username: str
+    email: str
+
+    class Config:
+        from_attributes = True 
+
+class PollOptionResponse(BaseModel):
+    id: UUID
+    option_text: str  # Directly map to what React expects (will be set from 'text' field)
+    poll_id: UUID
+    created_at: datetime
+    vote_count: int = 0  # Will be calculated and set manually in repository
+    
+    class Config:
+        from_attributes = True
+
+class PollResponse(BaseModel):
+    id: UUID
+    question: str
+    poll_type: str
+    group_id: UUID
+    created_by: UUID
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    options: List[PollOptionResponse] = []
+    can_delete: bool = False  
+    
+    class Config:
+        from_attributes = True
+
 class Poll(PollBase):
     id: UUID
     created_at: datetime
@@ -39,8 +72,11 @@ class PollOption(PollOptionBase):
     class Config:
         orm_mode = True
 
+# NEW: PollOption with vote count
+class PollOptionWithCount(PollOption):
+    vote_count: int
+
 class UserVoteBase(BaseModel):
-    user_id: UUID
     poll_id: UUID
     option_id: UUID
 
@@ -55,8 +91,9 @@ class UserVote(UserVoteBase):
     class Config:
         orm_mode = True
 
+# UPDATED: Use PollOptionWithCount instead of PollOption
 class PollWithOptions(Poll):
-    options: List[PollOption]
+    options: List[PollOptionWithCount]
     user_votes: Optional[List[UserVote]] = None
 
 class PollSummary(BaseModel):

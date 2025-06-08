@@ -31,6 +31,11 @@ export const getPollResults = async (pollId) => {
   return api.get(`${API_PREFIX}/${pollId}/results`);
 };
 
+// Delete a poll
+export const deletePoll = async (pollId) => {
+  return api.delete(`${API_PREFIX}/${pollId}`);
+};
+
 // Get poll voters
 export const getPollVoters = async (pollId, optionId = null) => {
   const params = optionId ? { option_id: optionId } : {};

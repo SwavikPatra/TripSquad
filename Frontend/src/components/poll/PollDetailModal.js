@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, BarChart3, Users, Clock, CheckCircle, XCircle, User } from 'lucide-react';
+import { X, BarChart3, Users, Clock, CheckCircle, XCircle, User, Send } from 'lucide-react';
 import { getPoll, votePoll, getPollVoters } from '../../services/api/poll_api';
 
 const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }) => {
@@ -26,6 +26,7 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
       setLoading(true);
       setError(null);
       const pollData = await getPoll(pollId);
+      console.log('Poll data received:', pollData);
       setPoll(pollData);
     } catch (err) {
       console.error('Failed to load poll:', err);
@@ -35,9 +36,9 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
     }
   };
 
-  const handleVote = async (optionId) => {
-    if (!poll?.is_active) {
-      setError('This poll is not active');
+  const handleSubmitVote = async () => {
+    if (!selectedOption || !poll?.is_active) {
+      setError('Please select an option to vote');
       return;
     }
 
@@ -47,12 +48,15 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
       
       await votePoll({
         poll_id: pollId,
-        option_id: optionId
+        option_id: selectedOption
       });
 
       // Reload poll data to get updated vote counts
       await loadPoll();
       onUpdate();
+      
+      // Reset selection after successful vote
+      setSelectedOption(null);
       
     } catch (err) {
       console.error('Failed to vote:', err);
@@ -63,18 +67,24 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
   };
 
   const loadVoters = async (optionId = null) => {
-    try {
-      setLoadingVoters(true);
-      const votersData = await getPollVoters(pollId, optionId);
-      setVoters(votersData);
-      setShowVoters(true);
-    } catch (err) {
-      console.error('Failed to load voters:', err);
-      setError(err.message || 'Failed to load voters');
-    } finally {
-      setLoadingVoters(false);
-    }
-  };
+  try {
+    setLoadingVoters(true);
+    const votersData = await getPollVoters(pollId, optionId);
+    console.log('Voters data received:', votersData);
+    
+    // Extract the actual data array from the Axios response
+    const actualVoters = votersData.data || votersData;
+    console.log('Actual voters array:', actualVoters);
+    
+    setVoters(actualVoters); // Set the actual array, not the response object
+    setShowVoters(true);
+  } catch (err) {
+    console.error('Failed to load voters:', err);
+    setError(err.message || 'Failed to load voters');
+  } finally {
+    setLoadingVoters(false);
+  }
+};
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -100,6 +110,7 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
     return <XCircle className="w-4 h-4" />;
   };
 
+  // ✅ Now vote_count comes directly from backend
   const totalVotes = poll?.options?.reduce((sum, option) => sum + (option.vote_count || 0), 0) || 0;
 
   if (!isOpen) return null;
@@ -129,7 +140,7 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
               <span className="ml-2">Loading poll...</span>
             </div>
           ) : error ? (
-            <div className="p-4 text-red-700 bg-red-100 border border-red-400 rounded">
+            <div className="p-4 text-red-700 bg-red-100 border border-red-400 rounded mb-4">
               {error}
             </div>
           ) : poll ? (
@@ -158,18 +169,62 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
                 </div>
               </div>
 
-              {/* Poll Options */}
+              {/* Voting Section - Only show if poll is active */}
+              {poll.is_active && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-800 mb-3">Cast your vote:</h4>
+                  <div className="space-y-2">
+                    {poll.options?.map((option) => (
+                      <label key={option.id} className="flex items-center cursor-pointer">
+                        <input
+                          type="radio"
+                          name="poll-option"
+                          value={option.id}
+                          checked={selectedOption === option.id}
+                          onChange={() => setSelectedOption(option.id)}
+                          className="mr-3 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-800">{option.text}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    onClick={handleSubmitVote}
+                    disabled={!selectedOption || voting}
+                    className={`mt-4 w-full py-2 px-4 rounded-lg flex items-center justify-center transition-colors ${
+                      selectedOption && !voting
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {voting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Submit Vote
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Poll Results */}
               <div className="space-y-3">
-                <h4 className="font-medium text-gray-700">Options:</h4>
+                <h4 className="font-medium text-gray-700">Results:</h4>
                 {poll.options?.map((option) => {
-                  const percentage = totalVotes > 0 ? Math.round((option.vote_count / totalVotes) * 100) : 0;
-                  const isSelected = selectedOption === option.id;
+                  // ✅ vote_count now comes directly from backend
+                  const voteCount = option.vote_count || 0;
+                  const percentage = totalVotes > 0 ? Math.round((voteCount / totalVotes) * 100) : 0;
                   
                   return (
                     <div key={option.id} className="space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-800">{option.text}</span>
-                        <span className="text-sm text-gray-600">{percentage}% ({option.vote_count})</span>
+                        <span className="text-sm text-gray-600">{percentage}% ({voteCount})</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div 
@@ -177,28 +232,14 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
                           style={{ width: `${percentage}%` }}
                         ></div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <button
-                          onClick={() => {
-                            setSelectedOption(option.id);
-                            handleVote(option.id);
-                          }}
-                          disabled={voting || !poll.is_active}
-                          className={`text-xs px-2 py-1 rounded ${
-                            isSelected 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                          } ${!poll.is_active ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        >
-                          {isSelected ? 'Voted ✓' : 'Vote'}
-                        </button>
+                      <div className="flex justify-end">
                         <button
                           onClick={() => loadVoters(option.id)}
                           disabled={loadingVoters}
-                          className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 flex items-center"
+                          className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center"
                         >
                           <User className="w-3 h-3 mr-1" />
-                          See voters
+                          See voters ({voteCount})
                         </button>
                       </div>
                     </div>
@@ -229,7 +270,7 @@ const PollDetailModal = ({ isOpen, onClose, pollId, onUpdate, groupId, isAdmin }
                           <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center mr-2">
                             <User className="w-3 h-3 text-gray-600" />
                           </div>
-                          <span className="text-sm text-gray-800">{voter.name || voter.email}</span>
+                          <span className="text-sm text-gray-800">{voter.username || voter.email}</span>
                         </div>
                       ))}
                     </div>

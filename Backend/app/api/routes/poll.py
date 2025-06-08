@@ -19,7 +19,10 @@ from app.api.schemas.poll import (
     PollResults,
     UserVote,
     UserVoteBase,
-    UserVoteCreate
+    UserVoteCreate,
+    PollOptionWithCount,
+    PollResponse, 
+    VotersResponse
 )
 from app.api.schemas.auth import UserData
 from typing import List
@@ -49,7 +52,7 @@ def read_poll(
     db: Session = Depends(get_db)
 ):
     try:
-        poll = pollrepo.get_poll_info(poll_id, db)
+        poll = pollrepo.get_poll_info(db, poll_id)
         if not poll:
             raise HTTPException(status_code=404, detail="Poll not found")
 
@@ -57,11 +60,24 @@ def read_poll(
         raw_votes = pollrepo.get_all_votes(poll_id, db)
             
         # ✅ Convert ORM -> Pydantic models
-        options = [PollOption.model_validate(opt, from_attributes=True) for opt in raw_options]
+        base_options = [PollOption.model_validate(opt, from_attributes=True) for opt in raw_options]
         votes = [UserVote.model_validate(v, from_attributes=True) for v in raw_votes]
-
         
-        # print(f"poll: id: {poll.id}, question: {poll.question}, poll_type: {poll.poll_type}, group_id: {poll.group_id}, is_active: {poll.is_active}, created_at: {poll.created_at}, updated_at: {poll.updated_at}, options: {options}, votes: {votes}")
+        # ✅ Calculate vote counts for each option
+        options_with_counts = []
+        for option in base_options:
+            vote_count = sum(1 for vote in votes if vote.option_id == option.id)
+            option_with_count = PollOptionWithCount(
+                id=option.id,
+                text=option.text,
+                poll_id=option.poll_id,
+                created_at=option.created_at,
+                vote_count=vote_count
+            )
+            options_with_counts.append(option_with_count)
+        
+        print(f"Options with counts: {[(opt.text, opt.vote_count) for opt in options_with_counts]}")
+        print(f"Total votes: {len(votes)}")
 
         return PollWithOptions(
             id=poll.id,
@@ -71,11 +87,11 @@ def read_poll(
             is_active=poll.is_active,
             created_at=poll.created_at,
             updated_at=poll.updated_at,
-            options=options,  # Must be list of PollOption ORM models
-            user_votes=votes  # Must be list of UserVote ORM models
+            options=options_with_counts,  # Now includes vote_count
+            user_votes=votes
         )
     except Exception as e:
-        print("working till 71")
+        print("Error in read_poll endpoint")
         import traceback
         traceback.print_exc()
         raise HTTPException(
@@ -84,14 +100,15 @@ def read_poll(
         )
 
 
-@router.get("/{group_id}/polls", response_model=List[Poll])
+@router.get("/{group_id}/polls", response_model=List[PollResponse])
 def read_group_polls(group_id: str,
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: UserData = Depends(get_current_user)
 ):
-    polls = pollrepo.get_polls_by_group(db, group_id, skip=skip, limit=limit)
-    return polls  
+    polls = pollrepo.get_polls_by_group(db, group_id, current_user.id, skip=skip, limit=limit)
+    return polls 
 
 @router.post("/vote", response_model=UserVote)
 def vote_poll(
@@ -105,18 +122,18 @@ def vote_poll(
         raise HTTPException(status_code=404, detail="Poll not found")
     if not poll.is_active:
         raise HTTPException(status_code=400, detail="Poll is not active")
+    print('inside poll api 108')
+    print(f"id: {vote.option_id}, poll_id: {vote.poll_id}")
     
     # Verify the option exists
-    option = db.query(PollOption).filter(
-        PollOption.id == vote.option_id,
-        PollOption.poll_id == vote.poll_id
-    ).first()
+    option = pollrepo.verify_option(db, vote.option_id, vote.poll_id)
+    print(f"inside poll api 116, option: {option.id}")
     if not option:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Option not found in this poll")
     
-    return pollrepo.create_or_update_vote(db, vote) 
+    return pollrepo.create_or_update_vote(db, vote, current_user.id) 
 
 @router.get("/{poll_id}/results", response_model=PollResults)
 def get_poll_results(poll_id: str, db: Session = Depends(get_db)):
@@ -166,9 +183,9 @@ def get_poll_results(poll_id: str, db: Session = Depends(get_db)):
             detail=f"Error fetching poll results: {str(e)}"
         )
 
-@router.get("/{poll_id}/voters")
+@router.get("/{poll_id}/voters", response_model=List[VotersResponse])
 def get_poll_voters(poll_id: str,
-    option_id: str = None,
+    option_id: UUID = None,
     db: Session = Depends(get_db),
     current_user: UserData = Depends(get_current_user)
     ):
@@ -176,12 +193,27 @@ def get_poll_voters(poll_id: str,
         if not poll:
             raise HTTPException(status_code=404, detail="Poll not found")
         
-        voters = pollrepo.get_poll_voters(db, poll_id, option_id)
-        return voters
+        return pollrepo.get_poll_voters(db, poll_id, option_id)
 
 @router.patch("/{poll_id}/status")
-def update_poll_status(poll_id: str, is_active: bool, db: Session = Depends(get_db)):
+def update_poll_status(poll_id: UUID, is_active: bool, db: Session = Depends(get_db)):
     poll = pollrepo.update_poll_status(db, poll_id, is_active)
     if not poll:
         raise HTTPException(status_code=404, detail="Poll not found")
     return poll
+
+@router.delete("/{poll_id}")
+async def delete_poll(
+    poll_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserData = Depends(get_current_user)
+):
+    """
+    Delete a poll if user is the creator or admin of the group
+    """
+    result = pollrepo.delete_poll(
+        db=db,
+        poll_id=poll_id,
+        current_user_id=current_user.id
+    )
+    return result
