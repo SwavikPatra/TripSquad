@@ -101,7 +101,7 @@ const GroupMediaAttachments = ({ group, loading, groupId }) => {
     if (file) {
       // Check if it's an image
       if (file.type.startsWith('image/')) {
-        handleFileUpload(file, 'MEDIA');
+        handleFileUpload(file, 'media');
       } else {
         setError('Please select an image file');
       }

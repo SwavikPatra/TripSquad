@@ -183,7 +183,7 @@ export const rejectJoinRequest = async (groupId, userId) => {
 // };
 
 // Upload attachment to a group
-export const uploadGroupAttachment = async (groupId, file, attachmentType = 'MEDIA') => {
+export const uploadGroupAttachment = async (groupId, file, attachmentType = 'media') => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('attachment_type', attachmentType);
