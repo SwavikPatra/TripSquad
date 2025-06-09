@@ -63,6 +63,7 @@ class GroupAttachment(Base):
 
     original_filename = Column(String(255), nullable=False)
     file_url = Column(String, nullable=False)  # Full S3 path or pre-signed URL
+    s3_key = Column(String, nullable=False)
     attachment_type = Column(Enum(AttachmentType), nullable=False)
     
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -181,3 +181,35 @@ export const rejectJoinRequest = async (groupId, userId) => {
 //   const response = await api.get(`/itinerary-entries/?group_id=${groupId}`);
 //   return response.data;
 // };
+
+// Upload attachment to a group
+export const uploadGroupAttachment = async (groupId, file, attachmentType = 'MEDIA') => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('attachment_type', attachmentType);
+  
+  return api.post(`${API_PREFIX}/attachments?group_id=${groupId}`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+// Get list of attachments for a group
+export const getGroupAttachments = async (groupId, attachmentType = null) => {
+  let url = `${API_PREFIX}/${groupId}/attachments`;
+  if (attachmentType) {
+    url += `?attachment_type=${attachmentType}`;
+  }
+  return api.get(url);
+};
+
+// Get presigned URL for attachment download
+export const getAttachmentPresignedUrl = async (attachmentId) => {
+  return api.get(`${API_PREFIX}/attachments/${attachmentId}`);
+};
+
+// Delete attachment
+export const deleteGroupAttachment = async (attachmentId) => {
+  return api.delete(`${API_PREFIX}/attachments/${attachmentId}`);
+};

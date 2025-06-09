@@ -291,7 +291,6 @@ async def list_group_expenses(
             min_amount=min_amount,
             max_amount=max_amount
         )
-        print(f"expenses: {expenses}")
         
         return expenses
         

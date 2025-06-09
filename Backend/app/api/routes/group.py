@@ -93,10 +93,8 @@ async def get_group(
             is_current_user_admin = True
         if is_current_user_admin:
             secret_code = grouprepo.get_or_create_group_secret(db, group_id, current_user.id)
-        print(f'secret code: {secret_code}')
         
         # Convert to response model
-        print('before group response')
         group_response = GroupResponse(
             id=db_group.id,
             name=db_group.name,
@@ -249,7 +247,7 @@ def get_itinerary_entries_by_group(
 async def upload_group_attachment(
     group_id: UUID,
     file: UploadFile = File(...),
-    attachment_type: AttachmentType = AttachmentType.MEDIA,
+    attachment_type: AttachmentType = Form("MEDIA"),
     db: Session = Depends(get_db),
     current_user: UserData = Depends(get_current_user)
 ):
@@ -269,10 +267,10 @@ async def upload_group_attachment(
         db.refresh(attachment)
         return {"message": "File uploaded successfully", "attachment_id": attachment.id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error while uploading attachments: {str(e)}")
 
 
-@router.get("/attachments")
+@router.get("/{group_id}/attachments")
 def list_attachments(
     group_id: UUID,
     attachment_type: Optional[AttachmentType] = None,

@@ -28,7 +28,6 @@ class ExpenseRepo:
                 detail="You don't have permissions to delete the expense."
             )
         split = db.query(ExpenseSplit).filter(ExpenseSplit.expense_id == expense_id).all()
-        print("printing...31")
         for expense_split in split:  # Each expense_split is an ExpenseSplit object
             user_id = expense_split.user_id  # Access attributes directly
             amount = expense_split.amount
@@ -38,8 +37,7 @@ class ExpenseRepo:
                     UserBalance.creditor_id == current_user_id,
                     UserBalance.group_id == group_id
                 ).one()
-                balance.amount -= amount
-        print("printing...40")    
+                balance.amount -= amount  
         db.delete(expense)
         db.commit()
         return {"message": "Expense deleted and balances updated"}
@@ -68,7 +66,6 @@ class ExpenseRepo:
             query = query.filter(Expense.total_amount <= max_amount)
         
         expenses = query.offset(skip).limit(limit).all()
-        print('inside function call 68')
         try:    
             return [
                 ExpenseResponse(
@@ -266,7 +263,6 @@ class ExpenseRepo:
                 note =  note,
             ) 
             db.add(settlement)
-            print(f"group_id: {group_id}, debtor_id: {paid_by}, creditor_id: {paid_to}")
             user_balance = db.query(UserBalance).filter(
                 UserBalance.group_id == group_id,
                 UserBalance.debtor_id == paid_by,

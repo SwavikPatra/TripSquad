@@ -15,7 +15,6 @@ router = APIRouter(prefix="/auth")
 @router.post("/signup")
 def signup(user_data: UserAuthData, db: Session = Depends(get_db)):
     try:
-        print(f"user data : {user_data}")
         # Call function to add user to the database
         authrepo.add_user_to_db(user_data, db)
     except HTTPException as e:

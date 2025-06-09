@@ -203,7 +203,6 @@ class GroupRepo:
             GroupMember.group_id == group_id,
             GroupMember.user_id == current_user
         ).first()
-        print(f"admin check: {user_role.role}")
 
         return True if user_role.role == 'admin' else False
 
@@ -256,12 +255,10 @@ class GroupRepo:
             GroupInvite.group_id == group_id,
             GroupInvite.is_active == True
         ).first()
-        print(f"db invite: {db_invite}")
         
         # Case 1: Found active unexpired invite
         if db_invite and db_invite.expires_at > datetime.now(timezone.utc):
             return db_invite.secret_code
-        print('after if')
         
         # Case 2: Found expired invite - refresh it
         if db_invite:

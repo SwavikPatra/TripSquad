@@ -75,9 +75,7 @@ def read_poll(
                 vote_count=vote_count
             )
             options_with_counts.append(option_with_count)
-        
-        print(f"Options with counts: {[(opt.text, opt.vote_count) for opt in options_with_counts]}")
-        print(f"Total votes: {len(votes)}")
+
 
         return PollWithOptions(
             id=poll.id,
@@ -91,7 +89,6 @@ def read_poll(
             user_votes=votes
         )
     except Exception as e:
-        print("Error in read_poll endpoint")
         import traceback
         traceback.print_exc()
         raise HTTPException(
@@ -122,12 +119,9 @@ def vote_poll(
         raise HTTPException(status_code=404, detail="Poll not found")
     if not poll.is_active:
         raise HTTPException(status_code=400, detail="Poll is not active")
-    print('inside poll api 108')
-    print(f"id: {vote.option_id}, poll_id: {vote.poll_id}")
     
     # Verify the option exists
     option = pollrepo.verify_option(db, vote.option_id, vote.poll_id)
-    print(f"inside poll api 116, option: {option.id}")
     if not option:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

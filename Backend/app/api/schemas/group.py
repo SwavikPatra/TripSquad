@@ -29,7 +29,6 @@ class CreateGroupRequest(BaseModel):
     name: str
     description: str
     def __init__(self, **data):
-        print(f"CreateGroupRequest received data: {data}")
         super().__init__(**data)
 
 class GroupResponse(BaseModel):

@@ -42,7 +42,6 @@ async def get_current_user(
             return user_data
             
         except ValidationError as ve:
-            print(f"Pydantic ValidationError: {ve}")
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"User data validation failed: {ve}")
 
         

@@ -78,10 +78,7 @@ class PollRepo():
         poll_id: UUID,
     ):
         try:
-            print(f"type: {type(db)}")
-            print(f'inside poll function 78: {poll_id}')
             poll = db.query(Poll).filter(Poll.id == poll_id).first()
-            print('inside poll function 80')
             return poll
         except Exception as e:
             raise HTTPException(
@@ -150,7 +147,6 @@ class PollRepo():
                 UserVote.poll_id == vote.poll_id,
                 UserVote.user_id == current_user_id
             ).delete()
-        print('inside create vote 111')
         
         # Check if this vote already exists
         existing_vote = db.query(UserVote).filter(

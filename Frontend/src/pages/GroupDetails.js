@@ -3,9 +3,9 @@ import { getGroupById, createItineraryEntry, getGroupItineraryEntries, getGroupM
 import { updateItineraryEntry } from '../services/api/itinerary_api';
 import { createExpense } from '../services/api/expense_api';
 import { createUserSettlement } from '../services/api/expense_api';
-import GroupInfo from '../components/group/GroupInfo';
 import GroupInfoModal from '../components/group/GroupInfoModal'; // New import
 import ItinerarySection from '../components/group/ItinerarySection';
+import GroupMediaAttachments from '../components/group/GroupMediaAttachments';
 import PollSection from '../components/poll/PollSection';
 import AddItineraryModal from '../components/group/AddItineraryModal';
 import ItineraryDetailModal from '../components/group/ItineraryDetailModal';
@@ -369,9 +369,10 @@ const GroupDetailsPage = () => {
         <div className="flex-1 flex gap-6 min-h-0">
           {/* Left: Group Information (now for images and documents) */}
           <div className="flex-1">
-            <GroupInfo 
+            <GroupMediaAttachments 
               group={group} 
               loading={loading.group}
+              groupId={group_id}
             />
           </div>
 

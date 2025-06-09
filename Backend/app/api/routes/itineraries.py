@@ -129,7 +129,6 @@ def delete_itinerary_entry(
     
     # Check if current user is the creator or has admin rights
     # You'll need to implement your own permission checking logic
-    print(f'entry created by : {entry.created_by}, current user : {current_user.id}')
     if entry.created_by != current_user.id:
         # Add group admin check here if needed
         raise HTTPException(
